@@ -161,6 +161,7 @@ func (c UnitConfig) Render() string {
 	if c.IPAccounting {
 		b.WriteString("IPAccounting=yes\n")
 	}
+	fmt.Fprintf(&b, "LogNamespace=%s\n", Namespace(c.Name))
 
 	b.WriteString("\n[Install]\n")
 	if CurrentMode() == ModeSystem {

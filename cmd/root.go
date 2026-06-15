@@ -34,5 +34,6 @@ func init() {
 		logsCmd,
 		showCmd,
 		editCmd,
+		flushCmd,
 	)
 }

@@ -24,6 +24,10 @@ var deleteCmd = &cobra.Command{
 		_ = systemd.Stop(name)
 		_ = systemd.Disable(name)
 		_ = systemd.ResetFailed(name)
+		ns := systemd.Namespace(name)
+		_ = systemd.StopJournald(ns)
+		_ = systemd.DeleteJournaldConf(ns)
+		_ = systemd.DeleteJournalFiles(ns)
 		if err := systemd.DeleteUnit(name); err != nil && !os.IsNotExist(err) {
 			return err
 		}

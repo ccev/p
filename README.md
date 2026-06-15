@@ -88,6 +88,20 @@ $ p delete web
 ✖ web deleted
 ```
 
+### Logs are size-capped per service
+
+Each service's journal is isolated and capped at 20MB by default — older
+entries get rotated out automatically, no cron needed. Override per-service
+with `--log-max` (e.g. `--log-max 100M`, `--log-max 1G`), and clear a
+service's logs on demand with `p flush`:
+
+```sh
+$ p flush web
+● web logs flushed
+
+$ p flush --all
+```
+
 ### Inspect or edit a service
 
 ```sh

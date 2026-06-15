@@ -25,7 +25,7 @@ var declarativeFlags = []string{
 	"restart", "restart-sec", "memory-max", "cpu-quota",
 	"kill-signal", "timeout-stop", "start-limit-burst", "umask",
 	"after", "wants", "requires", "ip-accounting",
-	"unset-env", "clear-env", "cmd",
+	"unset-env", "clear-env", "cmd", "log-max",
 }
 
 var editCmd = &cobra.Command{
@@ -62,30 +62,62 @@ func runEdit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	fs := cmd.Flags()
 	var newContent string
-	if declarativeMode(cmd.Flags()) {
-		newContent, err = declarativeEdit(name, cmd.Flags())
+	if declarativeMode(fs) {
+		newContent, err = declarativeEdit(name, fs)
 	} else {
 		newContent, err = interactiveEdit(path, original)
 	}
 	if err != nil {
 		return err
 	}
-	if newContent == "" {
+	unitChanged := newContent != "" && !bytes.Equal([]byte(newContent), original)
+	logMaxChanged := fs.Changed("log-max")
+
+	ns := systemd.Namespace(name)
+	confValue := ""
+	confWrite := false
+	switch {
+	case logMaxChanged:
+		confWrite = true
+		confValue = editFlagsBag.logMax
+	case !systemd.JournaldConfExists(ns):
+		// Migration: every managed unit's Render() emits LogNamespace= now,
+		// so any service without a per-namespace journald conf is missing
+		// the size cap that should come with it. Write the default whenever
+		// we touch this unit — that way old services pick the cap up the
+		// first time the user runs `p edit` on them, even with no flags.
+		confWrite = true
+		confValue = systemd.DefaultLogMaxSize
+	}
+
+	if !unitChanged && !confWrite {
 		fmt.Println(ui.Dim.Sprint("no changes"))
 		return nil
 	}
 	if editDryRun {
-		fmt.Print(newContent)
-		return nil
-	}
-	if bytes.Equal([]byte(newContent), original) {
-		fmt.Println(ui.Dim.Sprint("no changes"))
+		if unitChanged {
+			fmt.Print(newContent)
+		}
+		if confWrite {
+			fmt.Printf("# journald.conf SystemMaxUse=%s\n", confValue)
+		}
 		return nil
 	}
 
-	if err := os.WriteFile(path, []byte(newContent), 0644); err != nil {
-		return err
+	if unitChanged {
+		if err := os.WriteFile(path, []byte(newContent), 0644); err != nil {
+			return err
+		}
+	}
+	if confWrite {
+		if err := systemd.WriteJournaldConf(ns, confValue); err != nil {
+			return fmt.Errorf("write journald conf: %w", err)
+		}
+		// Best-effort: journald@<ns> may not be running yet (first activation
+		// happens when the service writes its first log line).
+		_ = systemd.RestartJournald(ns)
 	}
 	if !editNoReload {
 		if err := systemd.DaemonReload(); err != nil {
@@ -93,11 +125,17 @@ func runEdit(cmd *cobra.Command, args []string) error {
 		}
 	}
 	action := "edited"
-	if !editNoRestart {
+	if unitChanged && !editNoRestart {
 		if err := systemd.Restart(name); err != nil {
 			return fmt.Errorf("write succeeded but restart failed: %w", err)
 		}
 		action = "edited & restarted"
+	} else if !unitChanged && confWrite {
+		if logMaxChanged {
+			action = "log cap updated"
+		} else {
+			action = "log cap initialised"
+		}
 	}
 	fmt.Printf("%s %s %s\n", ui.Green.Sprint("●"), ui.Bold.Sprint(name), ui.Dim.Sprint(action))
 	return nil

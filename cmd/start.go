@@ -37,6 +37,7 @@ var (
 	startReplace         bool
 	startInheritPath     bool
 	startInheritEnv      []string
+	startLogMax          string
 )
 
 var nameRE = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
@@ -80,6 +81,7 @@ func init() {
 	f.BoolVar(&startReplace, "force", false, "overwrite an existing service with the same name")
 	f.BoolVar(&startInheritPath, "inherit-path", true, "pass the current shell's PATH into the service")
 	f.StringSliceVar(&startInheritEnv, "inherit-env", nil, "additional env vars to pass from the current shell (repeatable, comma-separated)")
+	f.StringVar(&startLogMax, "log-max", systemd.DefaultLogMaxSize, "max disk usage for this service's logs (e.g. 20M, 1G); empty disables cap")
 	_ = startCmd.MarkFlagRequired("name")
 }
 
@@ -132,6 +134,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 	path, err := systemd.WriteUnit(cfg)
 	if err != nil {
 		return fmt.Errorf("write unit: %w", err)
+	}
+	if err := systemd.WriteJournaldConf(systemd.Namespace(cfg.Name), startLogMax); err != nil {
+		return fmt.Errorf("write journald conf: %w", err)
 	}
 	if err := systemd.DaemonReload(); err != nil {
 		return err

@@ -31,6 +31,7 @@ type unitFlags struct {
 	wants           []string
 	requires        []string
 	ipAccounting    bool
+	logMax          string
 }
 
 // bindEditUnitFlags registers the unit-definition flags on fs with zero
@@ -56,6 +57,7 @@ func bindEditUnitFlags(fs *pflag.FlagSet, f *unitFlags) {
 	fs.StringSliceVar(&f.wants, "wants", nil, "replace Wants=")
 	fs.StringSliceVar(&f.requires, "requires", nil, "replace Requires=")
 	fs.BoolVar(&f.ipAccounting, "ip-accounting", false, "set IPAccounting=")
+	fs.StringVar(&f.logMax, "log-max", "", "max disk usage for this service's logs (e.g. 20M, 1G)")
 }
 
 // apply mutates cfg in-place, only touching fields whose flags were

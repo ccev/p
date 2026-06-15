@@ -109,7 +109,12 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		// in MESSAGE — all `short*` formats sanitise control characters even
 		// when journalctl is writing to a TTY. We pay for it with a JSON
 		// parse per line, which is fine at human-scale log rates.
+		//
+		// --namespace=* surfaces entries from both the default journal
+		// (units created before LogNamespace= was added) and the per-service
+		// namespace (current units).
 		jArgs := []string{systemd.CurrentMode().Flag(),
+			"--namespace=*",
 			"-u", systemd.ServiceUnit(n),
 			"-o", "json",
 			"-n", strconv.Itoa(logsLines),

@@ -60,11 +60,31 @@ a concrete reason to add a dependency.
   entries whose key is in `defaultEnv` so subsequent `p edit` re-renders
   pick up the *current* default value. Side effect: a user `-e FORCE_COLOR=0`
   override only survives one render; they have to re-pass it on every edit.
-- `p logs` uses `journalctl -o json`, not `-o short-iso`. Every `short*`
-  format sanitises control chars in MESSAGE — even through a pty — which
-  silently strips every ANSI escape. JSON encodes such messages as a byte
-  array (`[27, 91, 51, 52, …]`) which we decode in `decodeJournalMessage`.
-  `colorizeLevel` is a no-op on lines that already contain `\x1b[`.
+- `p logs` uses `journalctl -o json --namespace=*`, not `-o short-iso`. Every
+  `short*` format sanitises control chars in MESSAGE — even through a pty —
+  which silently strips every ANSI escape. JSON encodes such messages as a
+  byte array (`[27, 91, 51, 52, …]`) which we decode in `decodeJournalMessage`.
+  `--namespace=*` surfaces entries from both the default journal (pre-namespace
+  units) and per-service namespaces. `colorizeLevel` is a no-op on lines that
+  already contain `\x1b[`.
+- Every unit gets a `LogNamespace=p-<name>` so its journal is isolated and
+  can be size-capped independently. The cap lives in
+  `/etc/systemd/journald@p-<name>.conf.d/p.conf` (system mode) or the
+  equivalent under `~/.config/systemd/` (user mode); both
+  `SystemMaxUse=` and `RuntimeMaxUse=` are set so the cap survives whichever
+  storage mode journald picks. Default cap: `systemd.DefaultLogMaxSize`
+  ("20M"). Override per-service via `--log-max`. `p edit` auto-writes the
+  conf for any unit that doesn't have one yet — that's the migration path
+  for services created before this feature existed.
+- `p delete` must stop `systemd-journald@p-<name>.service`, remove the
+  conf.d dir, and `os.RemoveAll` the namespace's journal dirs in
+  `/var/log/journal.p-<name>` and `/run/log/journal.p-<name>` (or the
+  user-mode equivalents). Leaving any of these behind means a future
+  `p start` with the same name picks up stale state.
+- `p flush <name>` rotates + vacuums the namespace. `isNamespaceMissing`
+  silently swallows "No such file or directory" because a service that has
+  never logged hasn't activated its journald instance yet — there's nothing
+  to flush, but it's not an error.
 - `p logs` defaults to 50 lines and follows. `--no-follow` to turn off.
 - `p status` samples CPU% with a 250ms window in parallel goroutines.
 
