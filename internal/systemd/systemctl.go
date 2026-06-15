@@ -95,6 +95,19 @@ func Disable(name string) error {
 	return err
 }
 
+func Kill(name, signal, whom string) error {
+	args := []string{"kill"}
+	if signal != "" {
+		args = append(args, "-s", signal)
+	}
+	if whom != "" {
+		args = append(args, "--kill-whom="+whom)
+	}
+	args = append(args, ServiceUnit(name))
+	_, err := systemctl(args...)
+	return err
+}
+
 func ServiceUnit(name string) string {
 	if strings.HasSuffix(name, ".service") {
 		return name

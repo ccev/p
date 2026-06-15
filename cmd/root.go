@@ -28,9 +28,11 @@ func init() {
 		startCmd,
 		stopCmd,
 		restartCmd,
+		reloadCmd,
 		deleteCmd,
 		statusCmd,
 		logsCmd,
 		showCmd,
+		editCmd,
 	)
 }
