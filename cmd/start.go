@@ -35,6 +35,8 @@ var (
 	startIPAccounting    bool
 	startNoStart         bool
 	startReplace         bool
+	startInheritPath     bool
+	startInheritEnv      []string
 )
 
 var nameRE = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
@@ -76,6 +78,8 @@ func init() {
 	f.BoolVar(&startIPAccounting, "ip-accounting", true, "enable IPAccounting so status can show network IO")
 	f.BoolVar(&startNoStart, "no-start", false, "create the unit but do not start it")
 	f.BoolVar(&startReplace, "force", false, "overwrite an existing service with the same name")
+	f.BoolVar(&startInheritPath, "inherit-path", true, "pass the current shell's PATH into the service")
+	f.StringSliceVar(&startInheritEnv, "inherit-env", nil, "additional env vars to pass from the current shell (repeatable, comma-separated)")
 	_ = startCmd.MarkFlagRequired("name")
 }
 
@@ -100,6 +104,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	env := buildEnv(startInheritPath, startInheritEnv, startEnv)
+
 	cfg := systemd.UnitConfig{
 		Name:            startName,
 		Description:     startDescription,
@@ -107,7 +113,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		WorkingDir:      cwd,
 		User:            startUser,
 		Group:           startGroup,
-		Env:             startEnv,
+		Env:             env,
 		EnvFile:         startEnvFile,
 		Restart:         startRestart,
 		RestartSec:      startRestartSec,
@@ -153,4 +159,40 @@ func runStart(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  %s  %s\n", ui.Label.Sprint("state"), ui.Green.Sprint("started"))
 	}
 	return nil
+}
+
+// buildEnv composes the unit's Environment= entries: inherited vars from the
+// caller's shell first, then user-supplied -e entries (which win on key
+// collision). systemd hands services a minimal PATH otherwise, which is why
+// commands like `uv` or `node` (often in ~/.local/bin) are not found.
+func buildEnv(inheritPath bool, inheritKeys, userEnv []string) []string {
+	userKeys := map[string]bool{}
+	for _, e := range userEnv {
+		if i := strings.Index(e, "="); i > 0 {
+			userKeys[e[:i]] = true
+		}
+	}
+	var out []string
+	add := func(key string) {
+		if userKeys[key] {
+			return
+		}
+		v, ok := os.LookupEnv(key)
+		if !ok {
+			return
+		}
+		out = append(out, key+"="+v)
+	}
+	if inheritPath {
+		add("PATH")
+	}
+	for _, k := range inheritKeys {
+		k = strings.TrimSpace(k)
+		if k == "" {
+			continue
+		}
+		add(k)
+	}
+	out = append(out, userEnv...)
+	return out
 }

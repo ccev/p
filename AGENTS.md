@@ -42,6 +42,12 @@ a concrete reason to add a dependency.
 - `Restart=always`, `RestartSec=5`, `IPAccounting=yes`, `--auto-start=true`
 - `WorkingDirectory` defaults to whatever `os.Getwd()` returns at `p start`
   time, not the user's `$HOME`.
+- `PATH` from the caller's shell is baked into the unit at `p start` time
+  (`--inherit-path`, default on). Without this, services can't find tools in
+  `~/.local/bin` etc. — that's how the user hit "uv not found". Additional
+  vars via `--inherit-env KEY`. User-supplied `-e KEY=…` always overrides
+  inherited values for the same key. Inheritance is **not** automatic in
+  `p edit`; users updating an existing unit must pass `-e PATH=$PATH`.
 - `p logs` defaults to 50 lines and follows. `--no-follow` to turn off.
 - `p status` samples CPU% with a 250ms window in parallel goroutines.
 
