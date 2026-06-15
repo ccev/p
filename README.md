@@ -15,6 +15,23 @@ go install github.com/ccev/p@latest
 Requires Go 1.25+, `systemd`, and `journalctl`. Run as your user (units land in
 `~/.config/systemd/user/`) or as root (system-wide units).
 
+## Update
+
+Same command — `go install` always fetches the latest tagged version and
+overwrites the binary in `$GOBIN` (usually `~/go/bin/p`):
+
+```sh
+go install github.com/ccev/p@latest
+```
+
+Existing services keep running on the old binary's unit format. To re-render
+one through the current template (e.g. to pick up the login-shell wrapping),
+do any declarative edit:
+
+```sh
+p edit <name> --cmd "<same or new command>"
+```
+
 ## Examples
 
 ### Start something
