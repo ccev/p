@@ -51,11 +51,20 @@ a concrete reason to add a dependency.
   vars via `--inherit-env KEY`. User-supplied `-e KEY=…` always overrides
   inherited values for the same key. Inheritance is **not** automatic in
   `p edit`; users updating an existing unit must pass `-e PATH=$PATH`.
-- `FORCE_COLOR=1`, `CLICOLOR_FORCE=1`, `PY_COLORS=1` are written into every
-  new unit so common toolchains (node/yarn/cargo/python rich/…) emit ANSI
-  despite being piped to journald. `p logs` then passes service ANSI through
-  untouched — `colorizeLevel` is a no-op on lines that already contain
-  `\x1b[`. Don't add a regex pass that would clobber existing color spans.
+- `FORCE_COLOR=3`, `CLICOLOR_FORCE=1`, `PY_COLORS=1` are written into every
+  unit so common toolchains (node/yarn/cargo/python rich/…) emit ANSI
+  despite being piped to journald. **Truecolor (3)** — not 1 — because
+  `chalk.hex()` and friends emit nothing at chalk level 1. Anything that
+  only checks "is FORCE_COLOR truthy" also gets the right behaviour.
+- These default env entries are managed: `ParseUnit` skips Environment=
+  entries whose key is in `defaultEnv` so subsequent `p edit` re-renders
+  pick up the *current* default value. Side effect: a user `-e FORCE_COLOR=0`
+  override only survives one render; they have to re-pass it on every edit.
+- `p logs` uses `journalctl -o json`, not `-o short-iso`. Every `short*`
+  format sanitises control chars in MESSAGE — even through a pty — which
+  silently strips every ANSI escape. JSON encodes such messages as a byte
+  array (`[27, 91, 51, 52, …]`) which we decode in `decodeJournalMessage`.
+  `colorizeLevel` is a no-op on lines that already contain `\x1b[`.
 - `p logs` defaults to 50 lines and follows. `--no-follow` to turn off.
 - `p status` samples CPU% with a 250ms window in parallel goroutines.
 

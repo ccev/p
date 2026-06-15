@@ -65,7 +65,9 @@ func ParseUnit(name string) (*UnitConfig, error) {
 			case "Group":
 				cfg.Group = val
 			case "Environment":
-				cfg.Env = append(cfg.Env, val)
+				if !IsManagedDefaultEnv(val) {
+					cfg.Env = append(cfg.Env, val)
+				}
 			case "EnvironmentFile":
 				cfg.EnvFile = val
 			case "Restart":

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/ccev/p/internal/systemd"
 	"github.com/ccev/p/internal/ui"
@@ -46,7 +48,7 @@ func init() {
 }
 
 var (
-	logLevelRE = regexp.MustCompile(`(?i)\b(error|err|fatal|panic|warn|warning|info|debug|trace)\b`)
+	logLevelRE    = regexp.MustCompile(`(?i)\b(error|err|fatal|panic|warn|warning|info|debug|trace)\b`)
 	prefixPalette = []*color.Color{
 		color.New(color.FgCyan),
 		color.New(color.FgMagenta),
@@ -103,11 +105,14 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	for i, n := range names {
+		// -o json is the only output mode that preserves ANSI escape bytes
+		// in MESSAGE — all `short*` formats sanitise control characters even
+		// when journalctl is writing to a TTY. We pay for it with a JSON
+		// parse per line, which is fine at human-scale log rates.
 		jArgs := []string{systemd.CurrentMode().Flag(),
 			"-u", systemd.ServiceUnit(n),
-			"-o", "short-iso",
+			"-o", "json",
 			"-n", strconv.Itoa(logsLines),
-			"--no-hostname",
 		}
 		if !logsNoFollow {
 			jArgs = append(jArgs, "-f")
@@ -140,46 +145,71 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+type journalEntry struct {
+	Realtime string          `json:"__REALTIME_TIMESTAMP"`
+	Message  json.RawMessage `json:"MESSAGE"`
+}
+
 func pumpLogs(name string, r io.Reader, prefixCol *color.Color, padTo int, grepRE *regexp.Regexp) {
 	sc := bufio.NewScanner(r)
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	prefix := ""
 	if !logsRaw {
 		prefix = prefixCol.Sprint(ui.PadRight(name, padTo)) + ui.Dim.Sprint(" │ ")
 	}
 	for sc.Scan() {
-		line := sc.Text()
-		if grepRE != nil && !grepRE.MatchString(line) {
+		line := sc.Bytes()
+		var e journalEntry
+		if err := json.Unmarshal(line, &e); err != nil {
+			// Non-JSON line (rare; could be a journalctl info message).
+			text := string(line)
+			if grepRE != nil && !grepRE.MatchString(text) {
+				continue
+			}
+			fmt.Println(prefix + text)
 			continue
 		}
-		fmt.Println(prefix + colorizeLog(line))
+		msg := decodeJournalMessage(e.Message)
+		if grepRE != nil && !grepRE.MatchString(msg) {
+			continue
+		}
+		fmt.Println(prefix + formatTimestamp(e.Realtime) + " " + colorizeLevel(msg))
 	}
 }
 
-func colorizeLog(line string) string {
-	// Detect leading ISO timestamp from journalctl short-iso and dim it.
-	out := line
-	if len(out) > 20 && (out[4] == '-' || out[4] == 'T') {
-		// "2025-01-12T14:23:45+0000 host? service[pid]: message"
-		// short-iso w/ --no-hostname: "2025-01-12T14:23:45+0000 service[pid]: message"
-		idx := strings.Index(out, " ")
-		if idx > 10 {
-			ts := out[:idx]
-			rest := out[idx:]
-			// further dim the "service[pid]:" prefix
-			tail := rest
-			if c := strings.Index(rest, ": "); c > 0 && c < 80 {
-				meta := rest[:c+1]
-				msg := rest[c+1:]
-				tail = ui.Dim.Sprint(meta) + colorizeLevel(msg)
-			} else {
-				tail = colorizeLevel(rest)
-			}
-			out = ui.Dim.Sprint(ts) + tail
-			return out
-		}
+// decodeJournalMessage handles journalctl's two MESSAGE representations:
+// a normal JSON string when the bytes are clean UTF-8 without control chars,
+// or an array of byte values (e.g. [27, 91, 51, 52, 109, …]) whenever any
+// byte trips journalctl's "non-printable" check — which includes every ANSI
+// escape sequence.
+func decodeJournalMessage(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
 	}
-	return colorizeLevel(out)
+	if raw[0] == '"' {
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil {
+			return s
+		}
+		return ""
+	}
+	var nums []int
+	if err := json.Unmarshal(raw, &nums); err != nil {
+		return ""
+	}
+	b := make([]byte, len(nums))
+	for i, n := range nums {
+		b[i] = byte(n)
+	}
+	return string(b)
+}
+
+func formatTimestamp(realtime string) string {
+	us, err := strconv.ParseInt(realtime, 10, 64)
+	if err != nil || us == 0 {
+		return ui.Dim.Sprint("                    ")
+	}
+	return ui.Dim.Sprint(time.UnixMicro(us).Local().Format("2006-01-02 15:04:05"))
 }
 
 func colorizeLevel(s string) string {
