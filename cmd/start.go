@@ -161,10 +161,24 @@ func runStart(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// buildEnv composes the unit's Environment= entries: inherited vars from the
-// caller's shell first, then user-supplied -e entries (which win on key
-// collision). systemd hands services a minimal PATH otherwise, which is why
-// commands like `uv` or `node` (often in ~/.local/bin) are not found.
+// colorEnvDefaults are the env vars that tell common toolchains to emit
+// ANSI colors even when stdout is a pipe (journald, in our case). Without
+// these, `yarn`, `node`, `cargo`, `pip`, `rich`, etc. all silently disable
+// their output formatting and `p logs` is monochrome.
+var colorEnvDefaults = []string{
+	"FORCE_COLOR=1",     // chalk, supports-color, vite, jest, nextjs, …
+	"CLICOLOR_FORCE=1",  // BSD/Go convention, used by `ls`, fatih/color, …
+	"PY_COLORS=1",       // python rich
+}
+
+// buildEnv composes the unit's Environment= entries:
+//
+//  1. color defaults (so service output is colorful in `p logs`)
+//  2. inherited vars from the caller's shell (PATH, anything in --inherit-env)
+//  3. user-supplied -e entries (which win on key collision)
+//
+// systemd hands services a minimal PATH otherwise, which is why commands
+// like `uv` or `node` (often in ~/.local/bin) are not found.
 func buildEnv(inheritPath bool, inheritKeys, userEnv []string) []string {
 	userKeys := map[string]bool{}
 	for _, e := range userEnv {
@@ -173,6 +187,16 @@ func buildEnv(inheritPath bool, inheritKeys, userEnv []string) []string {
 		}
 	}
 	var out []string
+	for _, kv := range colorEnvDefaults {
+		eq := strings.Index(kv, "=")
+		if eq <= 0 {
+			continue
+		}
+		if userKeys[kv[:eq]] {
+			continue
+		}
+		out = append(out, kv)
+	}
 	add := func(key string) {
 		if userKeys[key] {
 			return

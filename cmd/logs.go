@@ -183,6 +183,12 @@ func colorizeLog(line string) string {
 }
 
 func colorizeLevel(s string) string {
+	// If the line already carries ANSI from the service itself, leave it
+	// untouched — otherwise our regex would wrap matches with red/reset and
+	// truncate the service's own color spans.
+	if strings.Contains(s, "\x1b[") {
+		return s
+	}
 	low := strings.ToLower(s)
 	switch {
 	case strings.Contains(low, "panic"), strings.Contains(low, "fatal"):

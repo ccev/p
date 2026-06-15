@@ -51,6 +51,11 @@ a concrete reason to add a dependency.
   vars via `--inherit-env KEY`. User-supplied `-e KEY=…` always overrides
   inherited values for the same key. Inheritance is **not** automatic in
   `p edit`; users updating an existing unit must pass `-e PATH=$PATH`.
+- `FORCE_COLOR=1`, `CLICOLOR_FORCE=1`, `PY_COLORS=1` are written into every
+  new unit so common toolchains (node/yarn/cargo/python rich/…) emit ANSI
+  despite being piped to journald. `p logs` then passes service ANSI through
+  untouched — `colorizeLevel` is a no-op on lines that already contain
+  `\x1b[`. Don't add a regex pass that would clobber existing color spans.
 - `p logs` defaults to 50 lines and follows. `--no-follow` to turn off.
 - `p status` samples CPU% with a 250ms window in parallel goroutines.
 
