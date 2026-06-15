@@ -24,7 +24,7 @@ func StatusColor(active string) *color.Color {
 		return Green
 	case "failed":
 		return Red
-	case "activating", "reloading", "deactivating":
+	case "inactive", "activating", "reloading", "deactivating":
 		return Yellow
 	default:
 		return Dim
@@ -38,11 +38,14 @@ func StatusDot(active, sub string) string {
 
 func StatusLabel(active, sub string) string {
 	c := StatusColor(active)
-	if active == "active" {
+	switch active {
+	case "active":
 		return c.Sprint("online")
-	}
-	if active == "" {
+	case "inactive":
+		return c.Sprint("stopped")
+	case "":
 		return Dim.Sprint("unknown")
+	default:
+		return c.Sprint(active)
 	}
-	return c.Sprint(active)
 }
