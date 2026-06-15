@@ -31,9 +31,12 @@ a concrete reason to add a dependency.
   go through that.
 - **Render ↔ Parse round-trip.** If you add a field to `UnitConfig`, update
   `Render()` *and* `ParseUnit()`, otherwise `p edit` silently drops the value.
-- **Command wrapping.** `ExecStart` is always `/bin/sh -c '<quoted>'`. Keep
-  `shellQuote`/`shellUnquote` symmetric. If you change the wrapping format,
-  every existing on-disk unit becomes unparseable.
+- **Command wrapping.** `ExecStart` is `<$SHELL or /bin/bash> -lc 'exec <quoted>'`.
+  The login shell is used so the user's rc files (PATH, nvm, direnv, locale,
+  …) are sourced. `exec ` keeps the wrapper from sitting in the process tree
+  as MainPID. Keep `shellQuote`/`shellUnquote` symmetric. `parseExecStart`
+  must keep recognising the legacy `/bin/sh -c '<quoted>'` form so units
+  predating this change remain editable.
 - **No `--force` escape hatches.** The user explicitly rejected them. Validate
   early or not at all; do not add "but you can override with --force" flags.
 

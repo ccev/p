@@ -95,7 +95,13 @@ func ParseUnit(name string) (*UnitConfig, error) {
 }
 
 // parseExecStart strips systemd's ExecStart prefixes (@, -, +, !, !!, :),
-// then unwraps our `/bin/sh -c '...'` wrapper if present.
+// then unwraps p's wrapper. Two formats are recognised:
+//
+//	/bin/sh -c '<cmd>'           (pre-shell-inheritance units)
+//	<path/to/shell> -lc '<cmd>'  (current — login shell, exec-prefixed)
+//
+// In either case the unquoted inner command is returned, with any leading
+// "exec " stripped so it can be re-rendered cleanly.
 func parseExecStart(s string) string {
 	s = strings.TrimSpace(s)
 	for len(s) > 0 {
@@ -107,8 +113,13 @@ func parseExecStart(s string) string {
 		break
 	}
 	s = strings.TrimSpace(s)
-	if rest, ok := strings.CutPrefix(s, "/bin/sh -c "); ok {
-		return shellUnquote(strings.TrimSpace(rest))
+	fields := strings.SplitN(s, " ", 3)
+	if len(fields) == 3 {
+		switch fields[1] {
+		case "-c", "-lc", "-cl":
+			cmd := shellUnquote(strings.TrimSpace(fields[2]))
+			return strings.TrimPrefix(cmd, "exec ")
+		}
 	}
 	return s
 }

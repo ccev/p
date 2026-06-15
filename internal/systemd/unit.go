@@ -30,6 +30,9 @@ type UnitConfig struct {
 	IPAccounting    bool
 	StartLimitBurst int
 	UMask           string
+	// Shell is the absolute path to the login shell used to wrap Command.
+	// When empty, Render() falls back to $SHELL, then /bin/bash.
+	Shell string
 }
 
 func (c UnitConfig) Render() string {
@@ -56,7 +59,9 @@ func (c UnitConfig) Render() string {
 
 	b.WriteString("\n[Service]\n")
 	b.WriteString("Type=simple\n")
-	fmt.Fprintf(&b, "ExecStart=/bin/sh -c %s\n", shellQuote(c.Command))
+	shell := resolveShell(c.Shell)
+	wrapped := "exec " + strings.TrimPrefix(c.Command, "exec ")
+	fmt.Fprintf(&b, "ExecStart=%s -lc %s\n", shell, shellQuote(wrapped))
 	if c.WorkingDir != "" {
 		fmt.Fprintf(&b, "WorkingDirectory=%s\n", c.WorkingDir)
 	}
@@ -161,4 +166,18 @@ func ReadUnit(name string) (string, error) {
 
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// resolveShell picks the shell whose rc files we want sourced for the service.
+// Preferring the caller's $SHELL means services inherit the same setup
+// (PATH tweaks, nvm shims, direnv hooks, locale, …) as an interactive
+// terminal — without having to bake every variable into the unit.
+func resolveShell(explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
+	if sh := os.Getenv("SHELL"); sh != "" {
+		return sh
+	}
+	return "/bin/bash"
 }
