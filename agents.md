@@ -71,7 +71,7 @@ Flags map directly onto common systemd unit options:
 | `-g, --group` | `Group=` | system mode only |
 | `-e, --env KEY=VAL` | `Environment=` | repeatable |
 | `--env-file` | `EnvironmentFile=` | path to env file |
-| `-r, --restart` | `Restart=` | `on-failure` (default), `always`, `no`, … |
+| `-r, --restart` | `Restart=` | `always` (default), `on-failure`, `no`, … |
 | `--restart-sec` | `RestartSec=` | seconds to wait between restarts |
 | `-m, --memory-max` | `MemoryMax=` | e.g. `256M`, `1G` |
 | `-c, --cpu-quota` | `CPUQuota=` | e.g. `50%` |
@@ -177,7 +177,7 @@ Type=simple
 ExecStart=/bin/sh -c 'node app.js'
 WorkingDirectory=/srv/web
 Environment=NODE_ENV=production
-Restart=on-failure
+Restart=always
 RestartSec=5
 MemoryMax=256M
 IPAccounting=yes

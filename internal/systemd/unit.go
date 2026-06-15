@@ -74,7 +74,7 @@ func (c UnitConfig) Render() string {
 	}
 	restart := c.Restart
 	if restart == "" {
-		restart = "on-failure"
+		restart = "always"
 	}
 	fmt.Fprintf(&b, "Restart=%s\n", restart)
 	rs := c.RestartSec

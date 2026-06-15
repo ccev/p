@@ -61,7 +61,7 @@ func init() {
 	f.StringVarP(&startGroup, "group", "g", "", "run as group (system mode only)")
 	f.StringArrayVarP(&startEnv, "env", "e", nil, "environment variable KEY=VALUE (repeatable)")
 	f.StringVar(&startEnvFile, "env-file", "", "load environment from file")
-	f.StringVarP(&startRestart, "restart", "r", "on-failure", "restart policy: no|on-failure|always|on-abnormal|on-watchdog|on-abort")
+	f.StringVarP(&startRestart, "restart", "r", "always", "restart policy: no|on-failure|always|on-abnormal|on-watchdog|on-abort")
 	f.IntVar(&startRestartSec, "restart-sec", 5, "seconds to wait before restart")
 	f.StringVarP(&startMemoryMax, "memory-max", "m", "", "MemoryMax (e.g. 256M, 1G)")
 	f.StringVarP(&startCPUQuota, "cpu-quota", "c", "", "CPUQuota (e.g. 50%)")
