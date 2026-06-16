@@ -71,17 +71,17 @@ func ResetFailed(name string) error {
 }
 
 func Start(name string) error {
-	_, err := systemctl("start", ServiceUnit(name))
+	_, err := systemctl("start", "--no-block", ServiceUnit(name))
 	return err
 }
 
 func Stop(name string) error {
-	_, err := systemctl("stop", ServiceUnit(name))
+	_, err := systemctl("stop", "--no-block", ServiceUnit(name))
 	return err
 }
 
 func Restart(name string) error {
-	_, err := systemctl("restart", ServiceUnit(name))
+	_, err := systemctl("restart", "--no-block", ServiceUnit(name))
 	return err
 }
 
