@@ -50,7 +50,7 @@ func bindEditUnitFlags(fs *pflag.FlagSet, f *unitFlags) {
 	fs.StringVarP(&f.memoryMax, "memory-max", "m", "", "set MemoryMax=")
 	fs.StringVarP(&f.cpuQuota, "cpu-quota", "c", "", "set CPUQuota=")
 	fs.StringVar(&f.killSignal, "kill-signal", "", "set KillSignal=")
-	fs.IntVar(&f.timeoutStopSec, "timeout-stop", 0, "set TimeoutStopSec=")
+	fs.IntVar(&f.timeoutStopSec, "timeout-stop", 0, "set TimeoutStopSec= (seconds before SIGKILL during stop/restart)")
 	fs.IntVar(&f.startLimitBurst, "start-limit-burst", 0, "set StartLimitBurst=")
 	fs.StringVar(&f.umask, "umask", "", "set UMask=")
 	fs.StringSliceVar(&f.after, "after", nil, "replace After=")

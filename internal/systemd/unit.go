@@ -152,9 +152,11 @@ func (c UnitConfig) Render() string {
 	if c.KillSignal != "" {
 		fmt.Fprintf(&b, "KillSignal=%s\n", c.KillSignal)
 	}
-	if c.TimeoutStopSec > 0 {
-		fmt.Fprintf(&b, "TimeoutStopSec=%d\n", c.TimeoutStopSec)
+	stopTimeout := c.TimeoutStopSec
+	if stopTimeout <= 0 {
+		stopTimeout = 5
 	}
+	fmt.Fprintf(&b, "TimeoutStopSec=%d\n", stopTimeout)
 	if c.UMask != "" {
 		fmt.Fprintf(&b, "UMask=%s\n", c.UMask)
 	}

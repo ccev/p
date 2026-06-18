@@ -42,7 +42,7 @@ a concrete reason to add a dependency.
 
 ## Defaults that are intentional
 
-- `Restart=always`, `RestartSec=5`, `IPAccounting=yes`, `--auto-start=true`
+- `Restart=always`, `RestartSec=5`, `TimeoutStopSec=5`, `IPAccounting=yes`, `--auto-start=true`
 - `WorkingDirectory` defaults to whatever `os.Getwd()` returns at `p start`
   time, not the user's `$HOME`.
 - `PATH` from the caller's shell is baked into the unit at `p start` time

@@ -69,7 +69,7 @@ func init() {
 	f.StringVarP(&startMemoryMax, "memory-max", "m", "", "MemoryMax (e.g. 256M, 1G)")
 	f.StringVarP(&startCPUQuota, "cpu-quota", "c", "", "CPUQuota (e.g. 50%)")
 	f.StringVar(&startKillSignal, "kill-signal", "", "signal used to stop (default SIGTERM)")
-	f.IntVar(&startTimeoutStopSec, "timeout-stop", 0, "TimeoutStopSec in seconds")
+	f.IntVar(&startTimeoutStopSec, "timeout-stop", 5, "seconds to wait before SIGKILL during stop/restart")
 	f.IntVar(&startStartLimitBurst, "start-limit-burst", 0, "max restarts in burst window")
 	f.StringVar(&startUMask, "umask", "", "process UMask, e.g. 0022")
 	f.StringSliceVar(&startAfter, "after", nil, "After= units (comma-separated, repeatable)")
