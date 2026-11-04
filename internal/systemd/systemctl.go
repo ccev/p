@@ -101,7 +101,20 @@ func Kill(name, signal, whom string) error {
 		args = append(args, "-s", signal)
 	}
 	if whom != "" {
-		args = append(args, "--kill-whom="+whom)
+		// Older systemctl releases use --kill-who instead of --kill-whom.
+		// Probe before signaling: retrying a kill could deliver the signal twice.
+		help, err := systemctl("--help")
+		if err != nil {
+			return fmt.Errorf("detect systemctl kill options: %w", err)
+		}
+		option := "--kill-whom="
+		if !strings.Contains(help, option) {
+			option = "--kill-who="
+			if !strings.Contains(help, option) {
+				return fmt.Errorf("systemctl does not support selecting kill recipients")
+			}
+		}
+		args = append(args, option+whom)
 	}
 	args = append(args, ServiceUnit(name))
 	_, err := systemctl(args...)
